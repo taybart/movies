@@ -12,6 +12,7 @@ use tower_http::{
     cors::CorsLayer,
     trace::{DefaultMakeSpan, TraceLayer},
 };
+use tracing::{error, info};
 
 pub struct AppState {
     db: Arc<sqlx::SqlitePool>,
@@ -27,14 +28,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if env::var("INGEST_MOVIES").is_ok() {
         let ingest_client = db::ingest::IngestClient::new("sqlite:movies.db").await?;
         ingest_client.start().await?;
-        println!("All data imports completed");
+        info!("All data imports completed");
         return Ok(());
     }
 
     let tera = match Tera::new("templates/**/*.html") {
         Ok(t) => t,
         Err(e) => {
-            println!("Parsing error(s): {}", e);
+            error!("Parsing error(s): {}", e);
             ::std::process::exit(1);
         }
     };

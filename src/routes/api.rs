@@ -10,6 +10,7 @@ use tracing::{error, info};
 
 use crate::{
     db::{movie, titles},
+    macros::res,
     routes::ErrResponse,
 };
 
@@ -25,22 +26,22 @@ pub async fn root(
     Json(req): Json<Request>,
 ) -> impl IntoResponse {
     info!("request {req:?}");
-    let Ok(titles) = titles::TitleQuery::new()
-        .like(req.title)
-        .title_type(req.title_type)
-        .start_year(req.year)
-        .limit(100)
-        .fetch(&state.db)
-        .await
-    else {
-        return (
+    let titles = res!(
+        titles::TitleQuery::new()
+            .like(req.title)
+            .title_type(req.title_type)
+            .start_year(req.year)
+            .limit(100)
+            .fetch(&state.db)
+            .await,
+        (
             StatusCode::NOT_FOUND,
             Json(ErrResponse {
                 error: "not found".into(),
             })
             .into_response(),
-        );
-    };
+        )
+    );
     (StatusCode::OK, Json(titles).into_response())
 }
 
@@ -49,19 +50,16 @@ pub async fn item(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     info!("request {id:?}");
-    let movie = match movie::get(&state.db, id).await {
-        Ok(m) => m,
-        Err(e) => {
-            error!("{e}");
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ErrResponse {
-                    error: "not found".into(),
-                })
-                .into_response(),
-            );
-        }
-    };
+    let movie = res!(
+        movie::get(&state.db, id).await,
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrResponse {
+                error: "not found".into(),
+            })
+            .into_response(),
+        )
+    );
 
     (StatusCode::OK, Json(movie).into_response())
 }
