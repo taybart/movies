@@ -18,24 +18,6 @@ pub struct Title {
     pub genres: String,
 }
 
-pub struct TitleQuery<'a>(QueryBuilder<'a, Sqlite>);
-
-impl<'r> FromRow<'r, SqliteRow> for Title {
-    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            tconst: row.try_get("tconst").unwrap_or("".into()),
-            title_type: row.try_get("title_type").unwrap_or("".into()),
-            primary_title: row.try_get("primary_title").unwrap_or("".into()),
-            original_title: row.try_get("original_title").unwrap_or("".into()),
-            is_adult: row.try_get("is_adult").unwrap_or(0),
-            start_year: row.try_get("start_year").unwrap_or(0),
-            end_year: row.try_get("end_year").unwrap_or(0),
-            runtime_minutes: row.try_get("runtime_minutes").unwrap_or(0),
-            genres: row.try_get("genres").unwrap_or("".into()),
-        })
-    }
-}
-
 pub async fn init_table(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"CREATE TABLE IF NOT EXISTS titles (
@@ -73,6 +55,24 @@ pub async fn init_table(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     Ok(())
 }
 
+pub struct TitleQuery<'a>(QueryBuilder<'a, Sqlite>);
+
+impl<'r> FromRow<'r, SqliteRow> for Title {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        Ok(Self {
+            tconst: row.try_get("tconst").unwrap_or("".into()),
+            title_type: row.try_get("title_type").unwrap_or("".into()),
+            primary_title: row.try_get("primary_title").unwrap_or("".into()),
+            original_title: row.try_get("original_title").unwrap_or("".into()),
+            is_adult: row.try_get("is_adult").unwrap_or(0),
+            start_year: row.try_get("start_year").unwrap_or(0),
+            end_year: row.try_get("end_year").unwrap_or(0),
+            runtime_minutes: row.try_get("runtime_minutes").unwrap_or(0),
+            genres: row.try_get("genres").unwrap_or("".into()),
+        })
+    }
+}
+
 impl<'a> TitleQuery<'a> {
     pub fn new() -> Self {
         TitleQuery(QueryBuilder::new("SELECT * FROM titles"))
@@ -87,6 +87,11 @@ impl<'a> TitleQuery<'a> {
         self
     }
 
+    pub fn limit(mut self, number: i64) -> Self {
+        self.0.push(" LIMIT ");
+        self.0.push_bind(number);
+        self
+    }
     pub fn like(mut self, title: String) -> Self {
         if !title.is_empty() {
             self.where_and();

@@ -22,7 +22,6 @@ function parseInputQuery(query, value) {
       title: [],
     },
   )
-  console.log('reduce', items.filters, items.title.join(' '))
   items.filters.forEach((i) => {
     if (i.startsWith('year:')) {
       query.year = +i.substring(5)

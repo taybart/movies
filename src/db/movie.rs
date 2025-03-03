@@ -14,7 +14,7 @@ pub struct Movie {
     title: String,
     year: i64,
     crew: Crew,
-    principals: Vec<(String, String)>,
+    principals: Vec<(String, Vec<String>)>,
 }
 
 pub async fn get(db: &SqlitePool, tconst: String) -> Result<Movie> {
@@ -25,18 +25,26 @@ pub async fn get(db: &SqlitePool, tconst: String) -> Result<Movie> {
         .movie(&tconst)
         .fetch(&db)
         .await?;
-    let director = names::NameQuery::new()
-        .id(&crew.directors[0])
-        .fetch_one(&db)
-        .await?;
+    // let director = names::NameQuery::new()
+    //     .id(&crew.directors[0])
+    //     .fetch_one(&db)
+    //     .await?;
     let principals = future::join_all(
         principals
             .into_iter()
-            .map(|p| async { (names::primary_name(db, p.nconst).await.unwrap(), p.job) })
+            .map(|p| async {
+                (
+                    names::primary_name(db, p.nconst).await.unwrap(),
+                    if p.job.is_empty() {
+                        p.characters
+                    } else {
+                        vec![p.job]
+                    },
+                )
+            })
             .collect::<Vec<_>>(),
     )
     .await;
-    println!("directed by: {:?} {:?}", director.primary_name, principals);
 
     Ok(Movie {
         title: title.primary_title,
@@ -44,15 +52,4 @@ pub async fn get(db: &SqlitePool, tconst: String) -> Result<Movie> {
         principals,
         crew,
     })
-
-    //         r#"SELECT t.tconst,
-    //         n.primary_name,
-    //         p.characters,
-    //         p.category,
-    //         p.job
-    //         FROM titles AS t
-    //         JOIN principals AS p ON p.tconst = t.tconst
-    //         JOIN names AS n ON p.nconst = n.nconst
-    //         WHERE t.tconst=(SELECT tconst FROM titles WHERE primary_title LIKE ?);
-    // "#
 }

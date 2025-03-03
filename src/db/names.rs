@@ -1,8 +1,6 @@
 use anyhow::Result;
 use serde::Serialize;
-use sqlx::{
-    prelude::FromRow, sqlite::SqliteRow, Pool, QueryBuilder, Row, Sqlite, SqlitePool, Transaction,
-};
+use sqlx::{prelude::FromRow, sqlite::SqliteRow, Pool, Row, Sqlite, SqlitePool, Transaction};
 
 #[derive(Debug, Serialize)]
 pub struct Name {
@@ -12,6 +10,24 @@ pub struct Name {
     pub death_year: Option<i32>,
     pub primary_profession: Vec<String>,
     pub known_for_titles: Vec<String>,
+}
+
+impl<'r> FromRow<'r, SqliteRow> for Name {
+    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
+        let profession_str = row.try_get("primary_profession").unwrap_or("".to_owned());
+        let primary_profession = profession_str.split(',').map(|s| s.to_owned()).collect();
+        let titles_str = row.try_get("known_for_titles").unwrap_or("".to_owned());
+        let known_for_titles = titles_str.split(',').map(|s| s.to_owned()).collect();
+
+        Ok(Self {
+            nconst: row.try_get("tconst").unwrap_or("".into()),
+            primary_name: row.try_get("primary_name").unwrap_or("".into()),
+            birth_year: row.try_get("birth_year").unwrap_or(None),
+            death_year: row.try_get("death_year").unwrap_or(None),
+            primary_profession,
+            known_for_titles,
+        })
+    }
 }
 
 pub async fn init_table(pool: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
@@ -43,61 +59,42 @@ pub async fn primary_name(db: &SqlitePool, id: String) -> Result<String> {
     Ok(name.primary_name)
 }
 
-pub struct NameQuery<'a>(QueryBuilder<'a, Sqlite>);
+// pub struct NameQuery<'a>(QueryBuilder<'a, Sqlite>);
+// impl<'a> NameQuery<'a> {
+//     pub fn new() -> Self {
+//         NameQuery(QueryBuilder::new("SELECT * FROM names"))
+//     }
 
-impl<'r> FromRow<'r, SqliteRow> for Name {
-    fn from_row(row: &'r SqliteRow) -> Result<Self, sqlx::Error> {
-        let profession_str = row.try_get("primary_profession").unwrap_or("".to_owned());
-        let primary_profession = profession_str.split(',').map(|s| s.to_owned()).collect();
-        let titles_str = row.try_get("known_for_titles").unwrap_or("".to_owned());
-        let known_for_titles = titles_str.split(',').map(|s| s.to_owned()).collect();
+//     pub fn id(mut self, id: &'a String) -> Self {
+//         if !id.is_empty() {
+//             self.where_and();
+//             self.0.push(" nconst = ");
+//             self.0.push_bind(id);
+//         }
+//         self
+//     }
 
-        Ok(Self {
-            nconst: row.try_get("tconst").unwrap_or("".into()),
-            primary_name: row.try_get("primary_name").unwrap_or("".into()),
-            birth_year: row.try_get("birth_year").unwrap_or(None),
-            death_year: row.try_get("death_year").unwrap_or(None),
-            primary_profession,
-            known_for_titles,
-        })
-    }
-}
+//     fn where_and(&mut self) {
+//         if !self.0.sql().contains("WHERE") {
+//             self.0.push(" WHERE");
+//         } else {
+//             self.0.push(" AND");
+//         }
+//     }
 
-impl<'a> NameQuery<'a> {
-    pub fn new() -> Self {
-        NameQuery(QueryBuilder::new("SELECT * FROM names"))
-    }
+//     fn known_for_titles(mut self, tconst: &'a String) -> Self {
+//         if !tconst.is_empty() {
+//             self.where_and();
+//             self.0.push(" known_for_titles CONTAINS ");
+//             self.0.push_bind(tconst);
+//         }
+//         self
+//     }
 
-    pub fn id(mut self, id: &'a String) -> Self {
-        if !id.is_empty() {
-            self.where_and();
-            self.0.push(" nconst = ");
-            self.0.push_bind(id);
-        }
-        self
-    }
-
-    fn where_and(&mut self) {
-        if !self.0.sql().contains("WHERE") {
-            self.0.push(" WHERE");
-        } else {
-            self.0.push(" AND");
-        }
-    }
-
-    fn known_for_titles(mut self, tconst: &'a String) -> Self {
-        if !tconst.is_empty() {
-            self.where_and();
-            self.0.push(" known_for_titles CONTAINS ");
-            self.0.push_bind(tconst);
-        }
-        self
-    }
-
-    pub async fn fetch_one(mut self, db: &SqlitePool) -> Result<Name> {
-        Ok(self.0.build_query_as::<Name>().fetch_one(db).await?)
-    }
-}
+//     pub async fn fetch_one(mut self, db: &SqlitePool) -> Result<Name> {
+//         Ok(self.0.build_query_as::<Name>().fetch_one(db).await?)
+//     }
+// }
 
 pub async fn ingest(
     transaction: &mut Transaction<'_, Sqlite>,

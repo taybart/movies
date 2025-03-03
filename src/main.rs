@@ -1,23 +1,21 @@
 mod db;
+mod macros;
 mod routes;
 
 use anyhow::Result;
-use axum::{
-    http::{header, Method},
-    routing::{get, post},
-    Router,
-};
+use axum::http::Method;
 use sqlx::sqlite::SqlitePoolOptions;
-use std::{env, sync::Arc};
+use std::{env, net::SocketAddr, sync::Arc};
+use tera::Tera;
 use tokio;
 use tower_http::{
     cors::CorsLayer,
-    services::{ServeDir, ServeFile},
-    trace::TraceLayer,
+    trace::{DefaultMakeSpan, TraceLayer},
 };
 
 pub struct AppState {
     db: Arc<sqlx::SqlitePool>,
+    tera: Arc<Tera>,
 }
 
 #[tokio::main]
@@ -33,6 +31,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let tera = match Tera::new("templates/**/*.html") {
+        Ok(t) => t,
+        Err(e) => {
+            println!("Parsing error(s): {}", e);
+            ::std::process::exit(1);
+        }
+    };
+    let tera = Arc::new(tera);
+
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect("sqlite:movies.db")
@@ -40,29 +47,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::init_tables(&pool).await?;
     let db = Arc::new(pool);
 
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST])
-        .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION]);
-
-    let state = Arc::new(AppState { db });
+    let cors = CorsLayer::new().allow_methods([Method::GET, Method::POST]);
+    // .allow_headers([header::CONTENT_TYPE, header::ACCEPT, header::AUTHORIZATION]);
 
     // build our application with a route
-    let app = Router::new()
-        .route("/api", post(routes::root))
-        .route("/api/item/{id}", get(routes::item))
-        .nest_service("/assets", ServeDir::new("assets"))
-        .fallback_service(
-            ServeDir::new("pages").not_found_service(ServeFile::new("pages/404.html")),
+    let app = routes::register()
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::default().include_headers(true)),
         )
-        .layer(TraceLayer::new_for_http())
         .layer(cors)
-        .with_state(state);
+        .with_state(Arc::new(AppState { db, tera }));
 
     // run our app with hyper, listening globally on port 3000
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }

@@ -1,13 +1,17 @@
-use crate::db::{movie, titles};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::sync::Arc;
 use tracing::{error, info};
+
+use crate::{
+    db::{movie, titles},
+    routes::ErrResponse,
+};
 
 #[derive(Debug, Deserialize)]
 pub struct Request {
@@ -16,12 +20,6 @@ pub struct Request {
     title_type: String,
     year: Option<i64>, // TODO: check js
 }
-
-#[derive(Serialize)]
-struct ErrResponse {
-    error: String,
-}
-
 pub async fn root(
     State(state): State<Arc<crate::AppState>>,
     Json(req): Json<Request>,
@@ -31,6 +29,7 @@ pub async fn root(
         .like(req.title)
         .title_type(req.title_type)
         .start_year(req.year)
+        .limit(100)
         .fetch(&state.db)
         .await
     else {
@@ -63,5 +62,6 @@ pub async fn item(
             );
         }
     };
+
     (StatusCode::OK, Json(movie).into_response())
 }

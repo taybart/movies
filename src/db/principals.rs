@@ -72,9 +72,9 @@ impl<'a> PrincipalsQuery<'a> {
         }
     }
 
-    pub async fn fetch_one(mut self, db: &SqlitePool) -> Result<Principal> {
-        Ok(self.0.build_query_as::<Principal>().fetch_one(db).await?)
-    }
+    // pub async fn fetch_one(mut self, db: &SqlitePool) -> Result<Principal> {
+    //     Ok(self.0.build_query_as::<Principal>().fetch_one(db).await?)
+    // }
     pub async fn fetch(mut self, db: &SqlitePool) -> Result<Vec<Principal>> {
         Ok(self.0.build_query_as::<Principal>().fetch_all(db).await?)
     }
