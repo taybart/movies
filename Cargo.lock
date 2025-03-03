@@ -1168,27 +1168,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "imdb"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "flate2",
- "futures",
- "headers",
- "indicatif",
- "reqwest",
- "serde",
- "serde_json",
- "sqlx",
- "tera",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "indexmap"
 version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1349,6 +1328,27 @@ dependencies = [
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "movies"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "flate2",
+ "futures",
+ "headers",
+ "indicatif",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tera",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
